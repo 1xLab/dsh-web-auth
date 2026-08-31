@@ -1,0 +1,3 @@
+# Cordis patch file: Inserts dsh-web-auth plugin into Web composition
+- id: dsh-web-auth
+  name: dsh-web-auth

@@ -1,0 +1,83 @@
+{
+  "name": "dsh-web-auth",
+  "version": "0.1.0",
+  "description": "Autenticação por senha e tela de login para DSH Web",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/types/**/*.d.ts",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dshhub": {
+    "schemaVersion": 1,
+    "displayName": "DSH Web Auth",
+    "summary": "Tela de login por senha e autenticação persistente para DSH Web.",
+    "categories": [
+      "Web UI",
+      "Security"
+    ],
+    "surfaces": [
+      "host"
+    ],
+    "compatibility": {
+      "dsh": ">=0.1.0-rc.5 <0.2.0",
+      "node": "^22.19.0 || >=24.0.0"
+    },
+    "permissions": {
+      "installScripts": false
+    }
+  },
+  "scripts": {
+    "build": "tsdown && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "check": "pnpm run typecheck && pnpm run test && pnpm run build && pnpm pack --dry-run",
+    "prepublishOnly": "pnpm run build"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "auth",
+    "login"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "author": "1xLab",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1xLab/dsh-web-auth.git"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-credentials": ">=0.1.0-rc.5 <0.2.0",
+    "@deepseek-ai/dsh-host-webserver": ">=0.1.0-rc.5 <0.2.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-credentials": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-host-webserver": "0.1.0-rc.6",
+    "@types/node": "^24.0.0",
+    "tsdown": "^0.22.14",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
