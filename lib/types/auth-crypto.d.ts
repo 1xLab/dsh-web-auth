@@ -7,6 +7,10 @@ export interface CredentialRecord {
 export declare function requestAuthority(headers: Record<string, string | string[] | undefined> | Headers): string | undefined;
 /** Generate authority-bound cookie name. */
 export declare function cookieName(authority: string): string;
+/** Retrieve custom password stored via credentials seam, if configured. */
+export declare function readStoredPassword(credentials: CredentialProvider): Promise<string | undefined>;
+/** Store a updated custom access password in credentials. */
+export declare function storeNewPassword(credentials: CredentialProvider, newPassword: string): Promise<void>;
 /** Retrieve existing signing secret or initialize the shared 32-byte secret in credentials. */
 export declare function getOrCreateSigningSecret(credentials: CredentialProvider): Promise<Buffer>;
 /** Mint a signed dsh-auth-* cookie header valid for maxAgeDays. */
