@@ -1,7 +1,9 @@
 /** Authentication crypto utilities for dsh-web-auth. */
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
-import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
+import { credentialRef } from '@deepseek-ai/dsh-credentials'
+import type { CredentialProvider, CredentialRef } from '@deepseek-ai/dsh-credentials'
 
+const DSH_WEB_PASSWORD_REF: CredentialRef = credentialRef('DSH_WEB_PASSWORD')
 const AUTH_RECORD_KEY = 'client-connection/browser-session'
 const STORED_SECRET_VERSION = 1
 const COOKIE_PAYLOAD_VERSION = 1
@@ -77,6 +79,22 @@ function storedSecret(record: CredentialRecord | undefined): Buffer | undefined 
   const decoded = decodeBase64Url(raw)
   if (decoded === undefined || decoded.byteLength !== SECRET_BYTES) return undefined
   return decoded
+}
+
+/** Retrieve custom password stored via credentials seam, if configured. */
+export async function readStoredPassword(credentials: CredentialProvider): Promise<string | undefined> {
+  try {
+    const res = await credentials.resolve(DSH_WEB_PASSWORD_REF)
+    if (res !== undefined && res.value !== '') return res.value
+  } catch {
+    // ignore
+  }
+  return undefined
+}
+
+/** Store a updated custom access password in credentials. */
+export async function storeNewPassword(credentials: CredentialProvider, newPassword: string): Promise<void> {
+  await credentials.set(DSH_WEB_PASSWORD_REF, newPassword)
 }
 
 /** Retrieve existing signing secret or initialize the shared 32-byte secret in credentials. */
