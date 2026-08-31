@@ -1,28 +1,28 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
-import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
 import { describe, expect, it, vi } from 'vitest'
-import { cookieName, getOrCreateSigningSecret, mintAuthCookie, verifyAuthCookie } from '../src/auth-crypto.ts'
+import { cookieName, getOrCreateSigningSecret, mintAuthCookie, verifyAuthCookie, type CredentialRecord } from '../src/auth-crypto.ts'
 import { renderLoginPage } from '../src/html.ts'
 import { apply } from '../src/index.ts'
 
 function createFakeCredentials(): {
-  records: Map<string, string>
+  records: Map<string, CredentialRecord>
   credentials: {
-    resolve: (ref: CredentialRef) => Promise<{ value: string; source: string } | undefined>
-    set: (ref: CredentialRef, value: string) => Promise<void>
+    readRecord: (key: unknown) => Promise<CredentialRecord | undefined>
+    modifyRecord: (key: unknown, mutate: (current: CredentialRecord | undefined) => Promise<CredentialRecord | undefined>) => Promise<CredentialRecord | undefined>
   }
 } {
-  const records = new Map<string, string>()
+  const records = new Map<string, CredentialRecord>()
   return {
     records,
     credentials: {
-      resolve: async (ref: CredentialRef) => {
-        const val = records.get(String(ref))
-        return val !== undefined ? { value: val, source: 'file' } : undefined
-      },
-      set: async (ref: CredentialRef, value: string) => {
-        records.set(String(ref), value)
+      readRecord: async (key: unknown) => records.get(String(key)),
+      modifyRecord: async (key: unknown, mutate) => {
+        const strKey = String(key)
+        const current = records.get(strKey)
+        const next = await mutate(current)
+        if (next !== undefined) records.set(strKey, next)
+        return records.get(strKey)
       },
     },
   }

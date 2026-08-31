@@ -1,19 +1,33 @@
 /** Authentication crypto utilities for dsh-web-auth. */
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
-import { credentialRef } from '@deepseek-ai/dsh-credentials'
-import type { CredentialProvider, CredentialRef } from '@deepseek-ai/dsh-credentials'
+import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
 
-const AUTH_SECRET_REF: CredentialRef = credentialRef('DSH_WEB_SESSION_SECRET')
-const DAY_MILLISECONDS = 24 * 60 * 60 * 1000
-const COOKIE_PREFIX = 'dsh-auth-'
+const AUTH_RECORD_KEY = 'client-connection/browser-session'
+const STORED_SECRET_VERSION = 1
 const COOKIE_PAYLOAD_VERSION = 1
+const DAY_MILLISECONDS = 24 * 60 * 60 * 1000
+const SECRET_BYTES = 32
+const COOKIE_PREFIX = 'dsh-auth-'
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]*$/
+
+export interface CredentialRecord {
+  readonly kind: string
+  readonly payload: unknown
+}
 
 interface BrowserCookiePayload {
   readonly version: typeof COOKIE_PAYLOAD_VERSION
   readonly authority: string
   readonly issuedAt: number
   readonly expiresAt: number
+}
+
+interface CredentialServiceWithRecords {
+  readRecord(key: string): Promise<CredentialRecord | undefined>
+  modifyRecord(
+    key: string,
+    mutate: (current: CredentialRecord | undefined) => Promise<CredentialRecord | undefined>,
+  ): Promise<CredentialRecord | undefined>
 }
 
 function encodeBase64Url(value: Uint8Array): string {
@@ -52,15 +66,43 @@ export function cookieName(authority: string): string {
   return COOKIE_PREFIX + encodeBase64Url(createHash('sha256').update(authority).digest())
 }
 
-/** Retrieve existing signing secret or initialize a durable 32-byte secret in credentials. */
-export async function getOrCreateSigningSecret(credentials: CredentialProvider): Promise<Buffer> {
-  const existing = await credentials.resolve(AUTH_SECRET_REF)
-  if (existing !== undefined && existing.value !== '') {
-    return Buffer.from(existing.value, 'utf8')
+function storedSecret(record: CredentialRecord | undefined): Buffer | undefined {
+  if (record === undefined) return undefined
+  if (record.kind !== 'grant' || typeof record.payload !== 'object' || record.payload === null
+    || (record.payload as Record<string, unknown>).version !== STORED_SECRET_VERSION) {
+    return undefined
   }
-  const generated = randomBytes(32).toString('hex')
-  await credentials.set(AUTH_SECRET_REF, generated)
-  return Buffer.from(generated, 'utf8')
+  const raw = (record.payload as Record<string, unknown>).secret
+  if (typeof raw !== 'string') return undefined
+  const decoded = decodeBase64Url(raw)
+  if (decoded === undefined || decoded.byteLength !== SECRET_BYTES) return undefined
+  return decoded
+}
+
+/** Retrieve existing signing secret or initialize the shared 32-byte secret in credentials. */
+export async function getOrCreateSigningSecret(credentials: CredentialProvider): Promise<Buffer> {
+  const service = credentials as unknown as CredentialServiceWithRecords
+  const existingRecord = await service.readRecord(AUTH_RECORD_KEY)
+  const existing = storedSecret(existingRecord)
+  if (existing !== undefined) return existing
+
+  const generated = {
+    version: STORED_SECRET_VERSION,
+    secret: encodeBase64Url(randomBytes(SECRET_BYTES)),
+  }
+
+  const updatedRecord = await service.modifyRecord(AUTH_RECORD_KEY, (current) => {
+    if (current !== undefined && storedSecret(current) !== undefined) {
+      return Promise.resolve(undefined)
+    }
+    return Promise.resolve({ kind: 'grant', payload: generated })
+  })
+
+  const secret = storedSecret(updatedRecord)
+  if (secret === undefined) {
+    throw new Error('dsh-web-auth: failed to initialize browser authentication secret')
+  }
+  return secret
 }
 
 function signature(secret: Buffer, body: string): Buffer {
